@@ -7,24 +7,22 @@ local config = {
    scope = "file",
 }
 
-local function is_disabled()
-   local current_filetype = vim.api.nvim_buf_get_option(0, "filetype")
-   for _, filetype in pairs(config.disabled_filetypes) do
-      if filetype == current_filetype then
-         return true
-      end
-   end
-   return false
-end
-
 local function exceed(buf, win, min_colorcolumn)
    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true) -- file scope
    if config.scope == "line" then
-      lines = vim.api.nvim_buf_get_lines(buf,
-         vim.fn.line(".", win)-1, vim.fn.line(".", win), true)
+      lines = vim.api.nvim_buf_get_lines(
+         buf,
+         vim.fn.line(".", win) - 1,
+         vim.fn.line(".", win),
+         true
+      )
    elseif config.scope == "window" then
-      lines = vim.api.nvim_buf_get_lines(buf,
-         vim.fn.line("w0", win)-1, vim.fn.line("w$", win), true)
+      lines = vim.api.nvim_buf_get_lines(
+         buf,
+         vim.fn.line("w0", win) - 1,
+         vim.fn.line("w$", win),
+         true
+      )
    end
 
    local max_column = 0
@@ -39,13 +37,19 @@ local function exceed(buf, win, min_colorcolumn)
       max_column = math.max(max_column, column_number)
    end
 
-   return not is_disabled() and max_column > min_colorcolumn
+   return not vim.tbl_contains(config.disabled_filetypes, vim.bo.ft) and max_column > min_colorcolumn
 end
 
 local function update()
    local buf_filetype = vim.api.nvim_buf_get_option(0, "filetype")
-   local colorcolumns =
-      config.custom_colorcolumn[buf_filetype] or config.colorcolumn
+   local colorcolumns
+
+   if type(config.custom_colorcolumn) == "function" then
+      colorcolumns = config.custom_colorcolumn()
+   else
+      colorcolumns = config.custom_colorcolumn[buf_filetype]
+         or config.colorcolumn
+   end
 
    local min_colorcolumn = colorcolumns
    if type(colorcolumns) == "table" then
@@ -85,8 +89,10 @@ function smartcolumn.setup(user_config)
       config[option] = value
    end
 
-   vim.api.nvim_create_autocmd({ "BufEnter", "CursorMoved", "CursorMovedI",
-      "WinScrolled" }, { callback = update })
+   vim.api.nvim_create_autocmd(
+      { "BufEnter", "CursorMoved", "CursorMovedI", "WinScrolled" },
+      { callback = update }
+   )
 end
 
 return smartcolumn
